@@ -1908,7 +1908,6 @@ async def import_certificate(
 ```c#
 public class KeyVaultCertificate : IJsonDeserializable {
     public byte[] Cer { get; }
-    public CertificateContentType ContentType { get; }
     public Uri Id { get; }
     public Uri KeyId { get; }
     public string Name { get; }
@@ -2206,7 +2205,9 @@ public class CertificateOperation : Operation<KeyVaultCertificateWithPolicy> {
 
 public class CertificateOperationProperties : IJsonDeserializable {
     public bool CancellationRequested { get; }
-    public string CertificateSigningRequest { get; }
+    public bool? CertificateTransparency { get; }
+    public string CertificateType { get; }
+    public string Csr { get; }
     public CertificateOperationError Error { get; }
     public Uri Id { get; }
     public string IssuerName { get; }
@@ -3043,7 +3044,6 @@ public struct CertificateKeyType : IEquatable<CertificateKeyType> {
     public CertificateKeyType(string value);
     public static CertificateKeyType Ec { get; }
     public static CertificateKeyType EcHsm { get; }
-    public static CertificateKeyType Oct { get; }
     public static CertificateKeyType Rsa { get; }
     public static CertificateKeyType RsaHsm { get; }
     public static bool operator ==(CertificateKeyType left, CertificateKeyType right);
@@ -3133,12 +3133,12 @@ export interface MergeCertificateOptions extends coreHttp.OperationOptions {}
 ```c#
 public class ImportCertificateOptions : IJsonSerializable {
     public ImportCertificateOptions(string name, byte[] value, CertificatePolicy policy);
+    public byte[] Certificate { get; }
     public bool? Enabled { get; set; }
     public string Name { get; }
     public string Password { get; set; }
     public CertificatePolicy Policy { get; }
     public IDictionary<string, string> Tags { get; }
-    public byte[] Value { get; }
 }
 ```
 
@@ -3391,6 +3391,7 @@ public class CertificateIssuer : IJsonDeserializable, IJsonSerializable {
     public string Name { get; }
     public string OrganizationId { get; set; }
     public string Password { get; set; }
+    public string Provider { get; }
     public IssuerProperties Properties { get; }
     public DateTimeOffset? UpdatedOn { get; }
 }
