@@ -11,63 +11,6 @@ The Azure Key Vault Certificate client library enables programmatically managing
 * Contact
 * Certificate Operation
 
-## Scenario - Create CertificateClient
-
-### API
-
-#### Java
-```java
-CertificateAsyncClient certificateAsyncClient = new CertificateClientBuilder()
-    .credential(new DefaultAzureCredentialBuilder().build())
-    .vaultUrl("https://myvault.vault.azure.net/")
-    .serviceVersion(CertificateServiceVersion.V7_0) .  // This parameter is optional, accepted but not used currently.
-    .buildAsyncClient();
-```
-
-#### .NET
-
-```c#
-public CertificateClient(Uri vaultUri, TokenCredential credential);
-public CertificateClient(Uri vaultUri, TokenCredential credential, CertificateClientOptions options);
-
-public class CertificateClientOptions : ClientOptions {
-    public enum ServiceVersion {
-        V7_0 = 0,
-    }
-    public CertificateClientOptions(ServiceVersion version = V7_0);
-    public ServiceVersion Version { get; }
-}
-```
-
-### Python
-
-```python
-from azure.identity import DefaultAzureCredential
-from azure.keyvault.certificates import CertificateClient, CertificatePolicy
-
-credential = DefaultAzureCredential()
-
-certificate_client = CertificateClient(vault_url="https://my-key-vault.vault.azure.net/", credential=credential)
-```
-
-### JS/TS
-
-```ts
-  /**
-   * Creates an instance of CertificateClient.
-   * @param {string} vaultUrl the base URL to the vault.
-   * @param {TokenCredential} credential An object that implements the `TokenCredential` interface used to authenticate requests to the service. Use the @azure/identity package to create a credential that suits your needs.
-   * @param {PipelineOptions} [pipelineOptions={}] Optional. Pipeline options used to configure Key Vault API requests.
-   *                                                         Omit this parameter to use the default pipeline configuration.
-   * @memberof CertificateClient
-   */
-  constructor(
-    vaultUrl: string,
-    credential: TokenCredential,
-    pipelineOptions: PipelineOptions = {}
-  )
-```
-
 ## Scenario - Get vault endpoint
 
 ### API
@@ -93,128 +36,6 @@ certificate_client.vault_url
   public readonly vaultUrl: string;
 ```
 
-
-## Scenario - Create Certificate
-### Usage
-
-
-### Java
-```java
-// Async Example
-CertificateClientBuilder builder = new CertificateClientBuilder()
-        .endpoint(<your-vault-url>)
-        .credential(new DefaultAzureCredentialBuilder().build());
-
-CertificateClient certificateClient = builder.buildClient();
-CertificateAsyncClient certificateAsyncClient = builder.buildAsyncClient();
-
-CertificatePolicy policy = new CertificatePolicy("Self", "CN=SelfSignedJavaPkcs12")
-                                .setValidityInMonths(24)
-                                .subjectAlternativeNames(SubjectAlternativeNames.fromEmails(Arrays.asList("wow@gmail.com")));
-
-//Creates a certificate and polls on its progress.
-Poller<CertificateOperation, Certificate> createCertPoller = certificateAsyncClient.createCertificate("certificateName", policy);
-
-createCertPoller
-    .getObserver()
-    .subscribe(pollResponse -> {
-        System.out.println("---------------------------------------------------------------------------------");
-        System.out.println(pollResponse.getStatus());
-        System.out.println(pollResponse.getValue().getStatus());
-        System.out.println(pollResponse.getValue().getStatusDetails());
-    });
-
-    // Do other ops ....
-    // Cannot move forward without cert at this point
-    Mono<Certificate> certificate = createCertPoller.block();
-
-
-// Sync example
-SyncPoller<CertificateOperation, KeyVaultCertificate> certificatePoller = certificateClient
-    .beginCreateCertificate("certificateName", certificatePolicy);
-certificatePoller.waitUntil(LongRunningOperationStatus.SUCCESSFULLY_COMPLETED);
-KeyVaultCertificate certificate = certificatePoller.getFinalResult();
-System.out.printf("Certificate created with name %s", certificate.getName());
-
-//By default blocks until certificate is created, unless a timeout is specified as an optional parameter.
-try {
-    myCertificate = certificateClient.createCertificate("certificateName",
-    policy, Duration.ofSeconds(60));
-} catch (IllegalStateException e) {
-    // Certificate wasn't created in the specified duration.
-    // Log / Handle here
-}
-```
-
-### .NET
-```c#
-var client = new CertificateClient(new Uri(keyVaultUrl), new DefaultAzureCredential());
-
-string certName = $"defaultCert-{Guid.NewGuid()}";
-CertificateOperation certOp = client.StartCreateCertificate(certName, CertificatePolicy.Default);
-
-while (!certOp.HasCompleted)
-{
-    certOp.UpdateStatus();
-
-    Thread.Sleep(TimeSpan.FromSeconds(1));
-}
-
-KeyVaultCertificateWithPolicy certificate = client.GetCertificate(certName);
-
-Debug.WriteLine($"Certificate was returned with name {certificate.Name} which expires {certificate.Properties.ExpiresOn}");
-```
-
-### Python
-```python
-    credential = DefaultAzureCredential()
-    client = CertificateClient(vault_url=VAULT_URL, credential=credential)
-    try:
-        # Alternatively, if you would like to use our default policy, don't pass a policy parameter to
-        # our certificate creation method
-        cert_policy = CertificatePolicy(content_type=SecretContentType.PKCS12,
-                                        issuer_name='Self',
-                                        subject_name='CN=*.microsoft.com',
-                                        validity_in_months=24,
-                                        san_dns_names=['sdk.azure-int.net']
-                                        )
-        cert_name = "HelloWorldCertificate"
-
-        # create_certificate returns a poller. Awaiting the poller will return the certificate
-        # if creation is successful, and the CertificateOperation if not.
-        create_certificate_poller = await client.create_certificate(name=cert_name, policy=cert_policy)
-        certificate = await create_certificate_poller
-        print("Certificate with name '{0}' created".format(certificate.name))
-
-
-        # Creating cert synchronously
-        # create_certificate returns a poller. Calling result() on the poller will return the certificate
-        # if creation is successful, and the CertificateOperation if not. The wait() call on the poller will
-        # wait until the long running operation is complete.
-        certificate = client.create_certificate(name=cert_name, policy=cert_policy).result()
-        print("Certificate with name '{0}' created".format(certificate.name))
-
-    except HttpResponseError as e:
-    print("\nrun_sample has caught an error. {0}".format(e.message))
-
-    finally:
-        print("\nrun_sample done")
-```
-### JS/TS
-```ts
-  const client = new CertificateClient(url, credential);
-
-  // DefaultCertificatePolicy:
-  //  export const Default: CertificatePolicy = {
-  //    issuerName: "Self",
-  //    subject: "cn=MyCert"
-  //  };
-  const createPoller = await client.beginCreateCertificate(certificateName, DefaultCertificatePolicy);
-
-  const pendingCertificate = createPoller.getResult();
-  console.log("Pending certificate: ", pendingCertificate);
-```
-
 ### API
 ### Java
 ```java
@@ -222,7 +43,7 @@ Debug.WriteLine($"Certificate was returned with name {certificate.Name} which ex
 public PollerFlux<CertificateOperation, KeyVaultCertificateWithPolicy> beginCreateCertificate(String certificateName, CertificatePolicy policy, boolean isEnabled, Map<String, String> tags)
 public PollerFlux<CertificateOperation, KeyVaultCertificateWithPolicy> beginCreateCertificate(String certificateName, CertificatePolicy policy)
 
-public SyncPoller<CertificateOperation, KeyVaultCertificateWithPolicy> beginCreateCertificate(String certificateName, CertificatePolicy policy, Boolean isEnabled, Map<String, String> tags)
+public SyncPoller<CertificateOperation, KeyVaultCertificateWithPolicy> beginCreateCertificate(String certificateName, CertificatePolicy policy, boolean isEnabled, Map<String, String> tags)
 public SyncPoller<CertificateOperation, KeyVaultCertificateWithPolicy> beginCreateCertificate(String certificateName, CertificatePolicy policy)
 ```
 
@@ -241,6 +62,9 @@ public virtual Task<CertificateOperation> StartCreateCertificateAsync(string cer
         policy,  # type: CertificatePolicy
         **kwargs  # type: Any
     ) -> KeyVaultCertificate
+    :keyword bool enabled: Whether the certificate is enabled for use.
+        :keyword tags: Application specific metadata in the form of key-value pairs.
+        :paramtype tags: dict[str, str]
 ```
 
 //Sync
@@ -251,6 +75,9 @@ public virtual Task<CertificateOperation> StartCreateCertificateAsync(string cer
         policy,  # type: CertificatePolicy
         **kwargs  # type: Any
     ) -> LROPoller[KeyVaultCertificate]
+    :keyword bool enabled: Whether the certificate is enabled for use.
+    :keyword tags: Application specific metadata in the form of key-value pairs.
+    :paramtype tags: dict[str, str]
 ```
 ### JS/TS
 ```ts
@@ -262,47 +89,14 @@ public virtual Task<CertificateOperation> StartCreateCertificateAsync(string cer
     PollerLike<PollOperationState<KeyVaultCertificateWithPolicy>, KeyVaultCertificateWithPolicy>
   >
 ```
-
-## Scenario - Get Certificate or certificate version
-### Usage
-### Java
-```java
-//Retrieve asynchronously
-certificateAsyncClient.getCertificateVersion("certificateName", "certificateVersion")
-    .subscribe(certificateResponse ->
-        System.out.printf("Certificate is returned with name %s and secretId %s %n", certificateResponse.name(),
-            certificateResponse.secretId()));
-
-// Retrieve synchronously
-KeyVaultCertificateWithPolicy certificate = certificateClient.getCertificate("certificateName");
-System.out.printf("Recevied certificate with name %s and version %s and secret id",
-    certificate.getProperties().getName(),
-    certificate.getProperties().getVersion(), certificate.getSecretId());
-```
-
-### Python
-```python
-//Async
-# Let's get the bank certificate using its name
-print("\n.. Get a Certificate by name")
-bank_certificate = await client.get_certificate(cert_name)
-print("Certificate with name '{0}' was found'.".format(bank_certificate.name))
-
-//Sync
-# Let's get the bank certificate using its name
-print("\n.. Get a Certificate by name")
-bank_certificate = client.get_certificate(cert_name)
-print("Certificate with name '{0}' was found'.".format(bank_certificate.name))
-```
-
 ### API
 ### Java
 ```java
 // Async API
 public Mono<KeyVaultCertificateWithPolicy> getCertificate(String certificateName)
 public Mono<Response<KeyVaultCertificateWithPolicy>> getCertificateWithResponse(String certificateName)
-public Mono<Response<KeyVaultCertificate>> getCertificateVersionWithResponse(String name, String version) {}
-public Mono<KeyVaultCertificate> getCertificateVersion(String name, String version) {}
+public Mono<Response<KeyVaultCertificate>> getCertificateVersionWithResponse(String certificateName, String version)
+public Mono<KeyVaultCertificate> getCertificateVersion(String certificateName, String version) {}
 
 //Sync API
 public KeyVaultCertificateWithPolicy getCertificate(String certificateName)
@@ -341,29 +135,6 @@ async def get_certificate_version(
   ): Promise<KeyVaultCertificate>
 ```
 
-## Scenario - Get Certificate Policy
-
-### Usage
-### Java
-```java
-//Async
-certificateAsyncClient.getCertificatePolicy("certificateName")
-    .subscriberContext(Context.of(key1, value1, key2, value2))
-    .subscribe(policy ->
-        System.out.printf("Certificate policy is returned with issuer name %s and subject name %s %n",
-            policy.issuerName(), policy.subjectName()));
-
-//Sync
-CertificatePolicy policy = certificateClient.getCertificatePolicy("certificateName");
-System.out.printf("Received policy with subject name %s", policy.subjectName());
-```
-
-### JS/TS
-```ts
-const policy = await client.getCertificatePolicy("MyCertificate");
-console.log(policy);
-```
-
 ### API
 ### Java
 ```java
@@ -392,96 +163,16 @@ async def get_certificate_policy(self, certificate_name: str, **kwargs: "Any") -
   ): Promise<CertificatePolicy>
 ```
 
-## Scenario - Update Certificate
-Question: Updating Certificate via Properties vs setting fields.
-
-### Usage
-### Java
-```java
-
-//Async
-certificateAsyncClient.getCertificate("certificateName")
-    .subscriberContext(Context.of(key1, value1, key2, value2))
-    .subscribe(certificateResponseValue -> {
-        KeyVaultCertificate certificate = certificateResponseValue;
-        //Update enabled status of the certificate
-        certificate.getProperties().setEnabled(false);
-        certificateAsyncClient.updateCertificateProperties(certificate.getProperties())
-            .subscribe(certificateResponse ->
-                System.out.printf("Certificate's enabled status %s %n",
-                    certificateResponse.getProperties().isEnabled().toString()));
-    });
-
-//Sync
-CertificateProperties certProps = certificateClient.getCertificateWithPolicy("certificateName").getProperties();
-Map<String, String> tags = new HashMap<>();
-tags.put("foo", "bar");
-// Update certificate enabled status and tags
-certProps.setEnabled(false);
-certProps.setTags(tags);
-Certificate updatedCertificate = certificateClient.updateCertificateProperties(certProps);
-System.out.printf("Updated Certificate with name %s and enabled status %s", updatedCertificate.name(),
-    updatedCertificate.getProperties().getEnabled());
-```
-
-### Python
-```python
-
-//Async
-print("\n.. Update a Certificate by name")
-tags = {"a": "b"}
-updated_certificate = await client.update_certificate_properties(
-    certificate_name=bank_certificate.name, tags=tags
-)
-print(
-    "Certificate with name '{0}' was updated on date '{1}'".format(
-        bank_certificate.name, updated_certificate.properties.updated_on
-    )
-)
-print(
-    "Certificate with name '{0}' was updated with tags '{1}'".format(
-        bank_certificate.name, updated_certificate.properties.tags
-    )
-)
-
-//Sync
-print("\n.. Update a Certificate by name")
-tags = {"a": "b"}
-updated_certificate = client.update_certificate_properties(
-    certificate_name=bank_certificate.name, tags=tags
-)
-print(
-    "Certificate with name '{0}' was updated on date '{1}'".format(
-        bank_certificate.name, updated_certificate.properties.updated_on
-    )
-)
-print(
-    "Certificate with name '{0}' was updated with tags '{1}'".format(
-        bank_certificate.name, updated_certificate.properties.tags
-    )
-)
-```
-
-### JS/TS
-```ts
-const version = "";
-await client.updateCertificateProperties("MyCertificate", version, {
-   tags: {
-    customTag: "value"
-   }
-});
-```
-
 ### API
 ### Java
 ```java
 
-public Mono<KeyVaultCertificate> updateCertificateProperties(CertificateProperties certificateProperties)
-public Mono<Response<KeyVaultCertificate>> updateCertificatePropertiesWithResponse(CertificateProperties certificateProperties)
+public Mono<KeyVaultCertificate> updateCertificateProperties(CertificateProperties properties)
+public Mono<Response<KeyVaultCertificate>> updateCertificatePropertiesWithResponse(CertificateProperties properties)
 
 
-public KeyVaultCertificate updateCertificateProperties(CertificateProperties certificateProperties)
-public Response<KeyVaultCertificate> updateCertificatePropertiesWithResponse(CertificateProperties certificateProperties, Context context)
+public KeyVaultCertificate updateCertificateProperties(CertificateProperties properties)
+public Response<KeyVaultCertificate> updateCertificatePropertiesWithResponse(CertificateProperties properties, Context context)
 ```
 
 ### .NET
@@ -495,6 +186,9 @@ public virtual Task<Response<KeyVaultCertificate>> UpdateCertificatePropertiesAs
 async def update_certificate_properties(
         self, certificate_name: str, version: Optional[str] = None, **kwargs: "Any"
     ) -> KeyVaultCertificate:
+    :keyword bool enabled: Whether the certificate is enabled for use.
+        :keyword tags: Application specific metadata in the form of key-value pairs.
+        :paramtype tags: dict[str, str]
 ```
 
 ### JS/TS
@@ -504,32 +198,6 @@ async def update_certificate_properties(
     version: string = "",
     options: UpdateCertificatePropertiesOptions = {}
   ): Promise<KeyVaultCertificate>
-```
-
-## Scenario - Update Certificate Policy
-### Usage
-### Java
-```java
-//Async
-certificateAsyncClient.getCertificatePolicy("certificateName")
-    .subscriberContext(Context.of(key1, value1, key2, value2))
-    .subscribe(certificatePolicyResponseValue -> {
-        CertificatePolicy certificatePolicy = certificatePolicyResponseValue;
-        // Update validity
-        certificatePolicy.setValidityInMonths(24);
-        certificateAsyncClient.updateCertificatePolicy("certificateName", certificatePolicy)
-            .subscribe(updatedPolicy ->
-                System.out.printf("Certificate policy's updated validity %d %n",
-                    updatedPolicy.getValidityInMonths()));
-    });
-
-// Sync
-CertificatePolicy certificatePolicy = certificateClient.getCertificatePolicy("certificateName");
-// Update the certificate policy cert validity property.
-certificatePolicy.setValidityInMonths(24);
-CertificatePolicy updatedCertPolicy = certificateClient.updateCertificatePolicy("certificateName",
-    certificatePolicy);
-System.out.printf("Updated Certificate Policy validity %d", updatedCertPolicy.getValidityInMonths());
 ```
 
 ### API
@@ -560,36 +228,6 @@ async def update_certificate_policy(
     policy: CertificatePolicy,
     options: UpdateCertificatePolicyOptions = {}
   ): Promise<CertificatePolicy>
-```
-
-
-## Scenario - Delete Certificate
-
-### Usage
-
-### python
-``` python
-# Async
-print("\n.. Delete Certificate")
-deleted_certificate = await client.delete_certificate(bank_certificate.name)
-print("Deleting Certificate..")
-print("Certificate with name '{0}' was deleted.".format(deleted_certificate.name))
-
-# Sync
-print("\n.. Delete Certificate")
-delete_certificate_poller = client.begin_delete_certificate(bank_certificate.name)
-deleted_certificate = delete_certificate_poller.result()
-print("Certificate with name '{0}' was deleted.".format(deleted_certificate.name))
-
-# wait to ensure certificate is deleted server-side
-delete_certificate_poller.wait()
-```
-
-### JS/TS
-
-```ts
-const deletePoller = await client.beginDeleteCertificate(certificateName);
-const deletedCertificate = await deletePoller.pollUntilDone();
 ```
 
 ### API
@@ -636,27 +274,6 @@ def begin_delete_certificate(self, certificate_name, **kwargs) -> LROPoller[Dele
   ): Promise<PollerLike<PollOperationState<DeletedCertificate>, DeletedCertificate>>
 ```
 
-## Scenario - Get Deleted Certificate
-### Usage
-
-### Java
-```java
-//Async
-certificateAsyncClient.getDeletedCertificate("certificateName")
-    .subscribe(deletedSecretResponse ->
-        System.out.printf("Deleted Certificate's Recovery Id %s %n", deletedSecretResponse.recoveryId()));
-
-//Sync
-DeletedCertificate deletedCertificate = certificateClient.getDeletedCertificate("certificateName");
-System.out.printf("Deleted certificate with name %s and recovery id %s", deletedCertificate.name(),
-    deletedCertificate.recoveryId());
-```
-### JS/TS
- ```ts
-const deletedCertificate = await client.getDeletedCertificate("MyDeletedCertificate");
-console.log("Deleted certificate:", deletedCertificate);
-```
-
 ### API
 ### Java
 ```java
@@ -684,31 +301,6 @@ async def get_deleted_certificate(self, certificate_name: str, **kwargs: "Any") 
     certificateName: string,
     options: GetDeletedCertificateOptions = {}
   ): Promise<DeletedCertificate>
-```
-
-## Scenario - Recover Deleted Certificate
-### Usage
-### Java
-```java
-//Async
-certificateAsyncClient.recoverDeletedCertificate("deletedCertificateName")
-    .subscribe(recoveredCert ->
-        System.out.printf("Recovered Certificate with name %s %n", recoveredCert.name()));
-
-//Sync
-SyncPoller<KeyVaultCertificate, Void> recoverCertPoller = certificateClient
-    .beginRecoverDeletedCertificate("deletedCertificateName");
-// Recovered certificate is accessible as soon as polling beings
-PollResponse<KeyVaultCertificate> pollResponse = recoverCertPoller.poll();
-System.out.printf(" Recovered Deleted certificate with name %s and id %s", pollResponse.getValue()
-        .getProperties().getName(), pollResponse.getValue().getProperties().getId());
-recoverCertPoller.waitForCompletion();
-```
-### JS/TS
- ```ts
-const recoverPoller = await client.beginRecoverDeletedCertificate("MyCertificate");
-const certificate = await recoverPoller.pollUntilDone();
-console.log(certificate);
 ```
 
 ### API
@@ -754,37 +346,6 @@ def begin_recover_deleted_certificate(self, certificate_name, **kwargs) -> LROPo
   ): Promise<PollerLike<PollOperationState<KeyVaultCertificate>, KeyVaultCertificate>>
 ```
 
-## Scenario - Purge Delete Certificate
-### Usage
-### Java
-```java
-//Async
-certificateAsyncClient.purgeDeletedCertificate("deletedCertificateName")
-    .doOnSuccess(response -> System.out.println("Successfully Purged certificate"));
-
-//Sync
-certificateClient.purgeDeletedCertificate("certificateName");
-```
-### python
- ```python
-
-# async
-print("\n.. Purge Deleted Certificate")
-await client.purge_deleted_certificate(storage_cert_name)
-print("Certificate has been permanently deleted.")
-
-# sync
-print("\n.. Purge Deleted Certificate")
-client.purge_deleted_certificate(storage_cert_name)
-print("Certificate has been permanently deleted.")
-```
-
-### JS/TS
-
-```ts
-await client.purgeDeletedCertificate("MyCertificate");
-```
-
 ### API
 ### Java
 ```java
@@ -810,41 +371,6 @@ async def purge_deleted_certificate(self, certificate_name: str, **kwargs: "Any"
     certificateName: string,
     options: PurgeDeletedCertificateOptions = {}
   ): Promise<null>
-```
-
-## Scenario - Backup Certificate
-### Usage
-### Java
-```java
-//Async
-certificateAsyncClient.backupCertificate("certificateName")
-    .subscriberContext(Context.of(key1, value1, key2, value2))
-    .subscribe(certificateBackupResponse ->
-        System.out.printf("Certificate's Backup Byte array's length %s %n", certificateBackupResponse.length));
-
-//Sync
-byte[] certificateBackup = certificateClient.backupCertificate("certificateName");
-System.out.printf("Backed up certificate with back up blob length %d", certificateBackup.length);
-```
-
-### python
- ```python
-
-# async
-print("\n.. Create a backup for an existing certificate")
-certificate_backup = await client.backup_certificate(cert_name)
-print("Backup created for certificate with name '{0}'.".format(cert_name))
-
-# sync
-print("\n.. Create a backup for an existing certificate")
-certificate_backup = client.backup_certificate(cert_name)
-print("Backup created for certificate with name '{0}'.".format(cert_name))
-```
-
-### JS/TS
-
-```ts
-const backup = await client.backupCertificate("MyCertificate");
 ```
 
 ### API
@@ -876,44 +402,6 @@ async def backup_certificate(self, certificate_name: str, **kwargs: "Any") -> by
   ): Promise<Uint8Array | undefined>
 ```
 
-## Scenario - Restore Certificate
-### Usage
-### Java
-```java
-//Async
-certificateAsyncClient.restoreCertificateBackup(certificateBackupByteArray)
-    .subscriberContext(Context.of(key1, value1, key2, value2))
-    .subscribe(certificateResponse -> System.out.printf("Restored Certificate with name %s and key id %s %n",
-        certificateResponse.getName(), certificateResponse.getKeyId()));
-
-//Sync
-byte[] certificateBackupBlob = {};
-KeyVaultCertificate certificate = certificateClient.restoreCertificateBackup(certificateBackupBlob);
-System.out.printf(" Restored certificate with name %s and id %s", certificate.getName(), certificate.getId());
-```
-
-### python
- ```python
-
-# async
-print("\n.. Restore the certificate using the backed up certificate bytes")
-certificate = await client.restore_certificate_backup(certificate_backup)
-print("Restored Certificate with name '{0}'".format(certificate.name))
-
-# sync
-print("\n.. Restore the certificate from the backup")
-certificate = client.restore_certificate_backup(certificate_backup)
-print("Restored Certificate with name '{0}'".format(certificate.name))
-```
-
-### JS/TS
-
-```ts
-const backup = await client.backupCertificate("MyCertificate");
-// Needs to be deleted and purged before it's restored
-await client.restoreCertificateBackup(backup!);
-```
-
 ### API
 ### Java
 ```java
@@ -941,47 +429,10 @@ async def restore_certificate_backup(self, backup: bytes, **kwargs: "Any") -> Ke
   ): Promise<KeyVaultCertificateWithPolicy>
 ```
 
-## Scenario - List Ceriticates
-### Usage
-
-### python
- ```python
-# async
-print("\n.. List certificates from the Key Vault")
-certificates = client.list_properties_of_certificates()
-async for certificate in certificates:
-    print("Certificate with name '{0}' was found.".format(certificate.name))
-
-# sync
-print("\n.. List certificates from the Key Vault")
-certificates = client.list_properties_of_certificates()
-for certificate in certificates:
-    print("Certificate with name '{0}' was found.".format(certificate.name))
-```
-
-```ts
-// Note: includePending is optional. It's false by default.
-
-// Listing all the available certificates in a single call.
-// The certificates we just created are still pending at this point.
-for await (const certificate of client.listPropertiesOfCertificates({ includePending: true })) {
-  console.log("Certificate from a single call: ", certificate);
-}
-
-// Listing all the available certificates by pages.
-let pageCount = 0;
-for await (const page of client.listPropertiesOfCertificates({ includePending: true }).byPage()) {
-  for (const certificate of page) {
-    console.log(`Certificate from page ${pageCount}: `, certificate);
-  }
-  pageCount++;
-}
-```
-
 ### API
 ### Java
 ```java
-public PagedFlux<CertificateProperties> listPropertiesOfCertificates(Boolean includePending)
+public PagedFlux<CertificateProperties> listPropertiesOfCertificates(boolean includePending)
 public PagedFlux<CertificateProperties> listPropertiesOfCertificates()
 
 public PagedIterable<CertificateProperties> listPropertiesOfCertificates()
@@ -996,51 +447,14 @@ public virtual AsyncPageable<CertificateProperties> GetPropertiesOfCertificatesA
 ### Python
 ```python
 def list_properties_of_certificates(self, **kwargs: "Any") -> AsyncIterable[CertificateProperties]:
+:keyword bool include_pending: Specifies whether to include certificates which are not
+         completely provisioned.
 ```
 ### JS/TS
 ```ts
   public listPropertiesOfCertificates(
     options: ListPropertiesOfCertificatesOptions = {}
-  ): PagedAsyncIterableIterator<CertificateProperties, CertificateProperties[]> 
-```
-
-## Scenario - List Ceriticate Versions
-### Usage
-
-### python
- ```python
-# async
-print("\n.. List versions of the certificate using its name")
-certificate_versions = client.list_properties_of_certificate_versions(bank_cert_name)
-async for certificate_version in certificate_versions:
-    print("Bank Certificate with name '{0}' with version '{1}' has tags: '{2}'.".format(
-        certificate_version.name,
-        certificate_version.version,
-        certificate_version.tags))
-
-# sync
-print("\n.. List versions of the certificate using its name")
-certificate_versions = client.list_properties_of_certificate_versions(bank_cert_name)
-for certificate_version in certificate_versions:
-    print(
-        "Bank Certificate with name '{0}' with version '{1}' has tags: '{2}'.".format(
-            certificate_version.name, certificate_version.version, certificate_version.tags
-        )
-    )
-```
-
-### JS/TS
-
-```ts
-for await (const item of client.listPropertiesOfCertificateVersions(certificateName)) {
-  console.log(properties.name, properties.version!);
-}
-
-for await (const page of client.listPropertiesOfCertificateVersions(certificateName).byPage()) {
-  for (const properties of page) {
-    console.log(properties.name, properties.version!);
-  }
-}
+  ): PagedAsyncIterableIterator<CertificateProperties, CertificateProperties[]>
 ```
 
 ### API
@@ -1071,45 +485,11 @@ def list_properties_of_certificate_versions(
   ): PagedAsyncIterableIterator<CertificateProperties, CertificateProperties[]>
 ```
 
-## Scenario - List Deleted Certificates
-### Usage
-### python
- ```python
-# async
-print("\n.. List deleted certificates from the Key Vault")
-deleted_certificates = client.list_deleted_certificates()
-async for deleted_certificate in deleted_certificates:
-    print(
-        "Certificate with name '{0}' has recovery id '{1}'".format(
-            deleted_certificate.name, deleted_certificate.recovery_id
-        )
-    )
-
-# sync
-print("\n.. List deleted certificates from the Key Vault")
-deleted_certificates = client.list_deleted_certificates()
-for deleted_certificate in deleted_certificates:
-    print(
-        "Certificate with name '{0}' has recovery id '{1}'".format(
-            deleted_certificate.name, deleted_certificate.recovery_id
-        )
-    )
-```
-
-```ts
-for await (const deletedCertificate of client.listDeletedCertificates({ includePending: true })) {
-}
-
-for await (const page of client.listDeletedCertificates({ includePending: true }).byPage()) {
-  for (const deleteCertificate of page) {
-  }
-}
-```
-
 ### API
 ### Java
 ```java
 public PagedFlux<DeletedCertificate> listDeletedCertificates()
+public PagedFlux<DeletedCertificate> listDeletedCertificates(Boolean includePending)
 
 public PagedIterable<DeletedCertificate> listDeletedCertificates()
 public PagedIterable<DeletedCertificate> listDeletedCertificates(Boolean includePending, Context context)
@@ -1124,6 +504,8 @@ public virtual AsyncPageable<DeletedCertificate> GetDeletedCertificatesAsync(boo
 ### Python
 ```python
 def list_deleted_certificates(self, **kwargs: "Any") -> AsyncIterable[DeletedCertificate]:
+:keyword bool include_pending: Specifies whether to include certificates which are
+         not completely deleted.
 ```
 
 ### JS/TS
@@ -1134,59 +516,12 @@ def list_deleted_certificates(self, **kwargs: "Any") -> AsyncIterable[DeletedCer
 ```
 
 
-## Scenario - Create Certificate Issuer
-Discuss - Create vs Set
-### Usage
-### java
-```java
-//Async
-certificateAsyncClient.createIssuer("issuerName", "providerName")
-    .subscribe(issuer -> {
-        System.out.printf("Issuer created with %s and %s", issuer.name(), issuer.provider());
-    });
-
-//Sync
-CertificateIssuer issuerToCreate = new CertificateIssuer("myissuer", "myProvider")
-    .setAccountId("testAccount")
-    .setAdministratorContacts(Arrays.asList(new AdministratorContact("test", "name",
-        "test@example.com")));
-CertificateIssuer returnedIssuer = certificateClient.createIssuer(issuerToCreate);
-System.out.printf("Created Issuer with name %s provider %s", returnedIssuer.getName(),
-    returnedIssuer.getProperties().getProvider());
-```
-
-### python
- ```python
-# async
-# First we specify the AdministratorContact for our issuers.
-admin_contacts = [
-    AdministratorContact(first_name="John", last_name="Doe", email="admin@microsoft.com", phone="4255555555")
-]
-
-# Next we create an issuer with these administrator details
-# The name field refers to the name you would like to get the issuer. There are also pre-set names, such as 'Self' and 'Unknown'
-await client.create_issuer(
-    issuer_name="issuer1", provider="Test", account_id="keyvaultuser", admin_contacts=admin_contacts, enabled=True
-)
-
-# sync
-client.create_issuer(
-    issuer_name="issuer1", provider="Test", account_id="keyvaultuser", admin_contacts=admin_contacts, enabled=True
-)
-```
-### JS/TS
-```ts
-await client.createIssuer("IssuerName", "Provider");
-```
-
 ### API
 ### Java
 ```java
-public Mono<CertificateIssuer> createIssuer(String issuerName, String provider)
 public Mono<CertificateIssuer> createIssuer(CertificateIssuer issuer)
 public Mono<Response<CertificateIssuer>> createIssuerWithResponse(CertificateIssuer issuer)
 
-public CertificateIssuer createIssuer(String issuerName, String provider)
 public CertificateIssuer createIssuer(CertificateIssuer issuer)
 public Response<CertificateIssuer> createIssuerWithResponse(CertificateIssuer issuer, Context context)
 ```
@@ -1201,6 +536,13 @@ public virtual Task<Response<CertificateIssuer>> CreateIssuerAsync(CertificateIs
 async def create_issuer(
         self, issuer_name: str, provider: str, **kwargs: "Any"
     ) -> CertificateIssuer:
+:keyword bool enabled: Whether the issuer is enabled for use.
+:keyword str account_id: The user name/account name/account id.
+:keyword str password: The password/secret/account key.
+:keyword str organization_id: Id of the organization
+:keyword admin_contacts: Contact details of the organization administrators of the
+    certificate issuer.
+:paramtype admin_contacts: list[~azure.keyvault.certificates.AdministratorContact]
 ```
 ### JS/TS
 ```javascript
@@ -1209,46 +551,6 @@ async def create_issuer(
     provider: string,
     options: CreateIssuerOptions = {}
   ): Promise<CertificateIssuer>
-```
-
-## Scenario - Get Certificate Issuer
-### Usage
-### java
-```java
-//Async
-certificateAsyncClient.getIssuer("issuerName")
-    .subscriberContext(Context.of(key1, value1, key2, value2))
-    .subscribe(issuer -> {
-        System.out.printf("Issuer returned with %s and %s", issuer.name(), issuer.provider());
-    });
-
-//Sync
-Response<CertificateIssuer> issuerResponse = certificateClient.getIssuerWithResponse("issuerName",
-    new Context(key1, value1));
-System.out.printf("Retrieved issuer with name %s and prodier %s", issuerResponse.getValue().getName(),
-    issuerResponse.getValue().getProperties().getProvider());
-```
-
-### python
- ```python
-# async
-issuer1 = await client.get_issuer("issuer1")
-
-print(issuer1.name)
-print(issuer1.properties.provider)
-print(issuer1.account_id)
-
-# sync
-issuer1 = client.get_issuer(issuer_name="issuer1")
-
-print(issuer1.name)
-print(issuer1.properties.provider)
-print(issuer1.account_id)
-```
-### JS/TS
-```ts
-const certificateIssuer = await client.getIssuer("IssuerName");
-console.log(certificateIssuer);
 ```
 
 ### API
@@ -1276,34 +578,6 @@ async def get_issuer(self, issuer_name: str, **kwargs: "Any") -> CertificateIssu
     issuerName: string,
     options: GetIssuerOptions = {}
   ): Promise<CertificateIssuer>
-```
-
-## Scenario - Delete Certificate Issuer
-### Usage
-### java
-```java
-//Async
-certificateAsyncClient.deleteIssuerWithResponse("issuerName")
-    .subscribe(deletedIssuerResponse ->
-        System.out.printf("Deleted issuer with name %s %n", deletedIssuerResponse.getValue().name()));
-
-//Sync
-CertificateIssuer deletedIssuer = certificateClient.deleteIssuer("certificateName");
-System.out.printf("Deleted certificate issuer with name %s and provider id %s", deletedIssuer.getName(),
-    deletedIssuer.getProperties().getProvider());
-```
-
-### python
- ```python
-# async
-await client.delete_issuer(name="issuer1")
-
-# sync
-client.delete_issuer(issuer_name="issuer1")
-```
-### JS/TS
-```ts
-await client.deleteIssuer("IssuerName");
 ```
 
 ### API
@@ -1335,57 +609,6 @@ async def delete_issuer(self, issuer_name: str, **kwargs: "Any") -> CertificateI
   ): Promise<CertificateIssuer>
 ```
 
-
-## Scenario - List Certificate Issuers
-### Usage
-### java
-```java
-//Async
-certificateAsyncClient.listPropertiesOfIssuers()
-    .subscriberContext(Context.of(key1, value1, key2, value2))
-    .subscribe(issuerProperties -> certificateAsyncClient.getIssuer(issuerProperties.getName())
-        .subscribe(issuerResponse -> System.out.printf("Received issuer with name %s and provider %s",
-            issuerResponse.getName(), issuerResponse.getProperties().getProvider())));
-
-//Sync
-for (IssuerProperties issuer : certificateClient.listPropertiesOfIssuers()) {
-    CertificateIssuer retrievedIssuer = certificateClient.getIssuer(issuer.getName());
-    System.out.printf("Received issuer with name %s and provider %s", retrievedIssuer.getName(),
-        retrievedIssuer.getProperties().getProvider());
-}
-```
-
-### python
- ```python
-# async
-issuers = client.list_properties_of_issuers()
-
-async for issuer in issuers:
-    print(issuer.name)
-    print(issuer.properties.provider)
-
-# sync
-issuers = client.list_properties_of_issuers()
-
-for issuer in issuers:
-    print(issuer.name)
-    print(issuer.provider)
-```
-
-### JS/TS
-```ts
-// All in one call
-for await (const issuerProperties of client.listPropertiesOfIssuers()) {
-  console.log(issuerProperties);
-}
-// By pages
-for await (const page of client.listPropertiesOfIssuers().byPage()) {
-  for (const issuerProperties of page) {
-    console.log(issuerProperties);
-  }
-}
-```
-
 ### API
 ### Java
 ```java
@@ -1411,38 +634,6 @@ def list_properties_of_issuers(self, **kwargs: "Any") -> AsyncIterable[IssuerPro
   ): PagedAsyncIterableIterator<IssuerProperties, IssuerProperties[]>
 ```
 
-## Scenario - Update Certificate Issuer
-### Usage
-### java
-```java
-//Async
-certificateAsyncClient.getIssuer("issuerName")
-    .subscriberContext(Context.of(key1, value1, key2, value2))
-    .subscribe(issuerResponseValue -> {
-        CertificateIssuer issuer = issuerResponseValue;
-        //Update the enabled status of the issuer.
-        issuer.setEnabled(false);
-        certificateAsyncClient.updateIssuer(issuer)
-            .subscribe(issuerResponse ->
-                System.out.printf("Issuer's enabled status %s %n",
-                    issuerResponse.isEnabled().toString()));
-    });
-
-//Sync
-CertificateIssuer returnedIssuer = certificateClient.getIssuer("issuerName");
-returnedIssuer.setAccountId("newAccountId");
-CertificateIssuer updatedIssuer = certificateClient.updateIssuer(returnedIssuer);
-System.out.printf("Updated issuer with name %s, provider %s and account Id %s", updatedIssuer.getName(),
-    updatedIssuer.getProperties().getProvider(), updatedIssuer.getAccountId());
-```
-
-### JS/TS
-```ts
-await client.updateIssuer("IssuerName", {
-    provider: "Provider2"
-});
-```
-
 ### API
 ### Java
 ```java
@@ -1461,6 +652,14 @@ public virtual Task<Response<CertificateIssuer>> UpdateIssuerAsync(CertificateIs
 ### Python
 ```python
 async def update_issuer(self, issuer_name: str, **kwargs: "Any") -> CertificateIssuer:
+:keyword bool enabled: Whether the issuer is enabled for use.
+:keyword str provider: The issuer provider
+:keyword str account_id: The user name/account name/account id.
+:keyword str password: The password/secret/account key.
+:keyword str organization_id: Id of the organization
+:keyword admin_contacts: Contact details of the organization administrators of
+    the certificate issuer
+:paramtype admin_contacts: list[~azure.keyvault.certificates.AdministratorContact]
 ```
 ### JS/TS
 ```ts
@@ -1470,24 +669,6 @@ async def update_issuer(self, issuer_name: str, **kwargs: "Any") -> CertificateI
   ): Promise<CertificateIssuer>
 ```
 
-
-
-## Scenario - Get Certificate Operation
-
-### Usage
-### JS/TS
-```ts
-const client = new CertificateClient(url, credentials);
-const createPoller = await client.beginCreateCertificate("MyCertificate", {
-  issuerName: "Self",
-  subject: "cn=MyCert"
-});
-const pendingCertificate = createPoller.getResult();
-console.log(pendingCertificate);
-const poller = await client.getCertificateOperation("MyCertificate");
-const certificateOperation = poller.getResult();
-console.log(certificateOperation);
-```
 ### API
 ### Java
 ```java
@@ -1511,28 +692,6 @@ async def get_certificate_operation(self, certificate_name: str, **kwargs: "Any"
     certificateName: string,
     options: GetCertificateOperationOptions = {}
   ): Promise<PollerLike<PollOperationState<CertificateOperation>, CertificateOperation>>
-```
-
-## Scenario - Cancel Certificate Operation
-### Usage
-
-### JS/TS
-```ts
-// Directly can't be done anymore, this method is now private.
-// await client.cancelCertificateOperation("MyCertificate");
-// The poller cancel methods use client.cancelCertificateOperation in the background.
-
-// Through the create poller
-const client = new CertificateClient(url, credentials);
-const createPoller = await client.beginCreateCertificate("MyCertificate", {
-  issuerName: "Self",
-  subject: "cn=MyCert"
-});
-await createPoller.cancel();
-
-// Through the operation poller
-const operationPoller = await client.getCertificateOperation("MyCertificate");
-await operationPoller.cancel();
 ```
 
 ### API
@@ -1567,25 +726,6 @@ async def cancel_certificate_operation(self, certificate_name: str, **kwargs: "A
   ): Promise<CertificateOperation>
 ```
 
-## Scenario - Delete Certificate Operation
-### Usage
-### java
-```java
-//Async
-certificateAsyncClient.deleteCertificateOperationWithResponse("certificateName")
-    .subscribe(certificateOperationResponse -> System.out.printf("Deleted Certificate operation's last"
-        + " status %s", certificateOperationResponse.getValue().status()));
-
-//Sync
-CertificateOperation deletedCertificateOperation = certificateClient.deleteCertificateOperation("certificateName");
-System.out.printf("Deleted Certificate Operation's last status %s", deletedCertificateOperation.status());
-```
-
-### JS/TS
-```ts
-await client.deleteCertificateOperation("MyCertificate");
-```
-
 ### API
 ### Java
 ```java
@@ -1616,35 +756,6 @@ async def delete_certificate_operation(self, certificate_name: str, **kwargs: "A
   ): Promise<CertificateOperation>
 ```
 
-
-
-## Scenario - Set Certificate Contacts
-### Usage
-### java
-```java
-//Async
-CertificateContact contactToAdd = new CertificateContact("user", "useremail@exmaple.com");
-certificateAsyncClient.setContacts(Arrays.asList(oontactToAdd)).subscribe(contact ->
-    System.out.printf("Contact name %s and email %s", contact.getName(), contact.getEmailAddress())
-);
-
-//Sync
-CertificateContact contactToAdd = new CertificateContact("user", "useremail@exmaple.com");
-for (CertificateContact contact : certificateClient.setContacts(Arrays.asList(contactToAdd))) {
-    System.out.printf("Added contact with name %s and email %s to key vault", contact.getName(),
-        contact.getEmailAddress());
-}
-```
-
-### JS/TS
- ```ts
-await client.setContacts([{
-  email: "b@b.com",
-  name: "b",
-  phone: "222222222222"
-}]);
-```
-
 ### API
 ### Java
 ```java
@@ -1673,28 +784,6 @@ async def set_contacts(
   ): Promise<CertificateContact[] | undefined>
 ```
 
-## Scenario - List Certificate Contacts
-### Usage
-### java
-```java
-//Async
-certificateAsyncClient.listContacts().subscribe(contact ->
-    System.out.printf("Contact name %s and email %s", contact.getName(), contact.getEmailAddress())
-);
-
-//Sync
-for (CertificateContact contact : certificateClient.listContacts(new Context(key1, value1))) {
-    System.out.printf("Added contact with name %s and email %s to key vault", contact.getName(),
-        contact.getEmailAddress());
-}
-```
-
-### JS/TS
- ```ts
-const contacts = await client.getContacts();
-console.log(contacts!);
-```
-
 ### API
 ### Java
 ```java
@@ -1718,27 +807,6 @@ async def get_contacts(self, **kwargs: "Any") -> List[CertificateContact]:
   public async getContacts(
     options: GetContactsOptions = {}
   ): Promise<CertificateContact[] | undefined>
-```
-
-## Scenario - Delete Certificate Contacts
-### Usage
-### java
-```java
-//Async
-certificateAsyncClient.deleteContacts().subscribe(contact ->
-    System.out.printf("Deleted Contact name %s and email %s", contact.getName(), contact.getEmailAddress())
-);
-
-//Sync
-for (CertificateContact contact : certificateClient.deleteContacts()) {
-    System.out.printf("Deleted contact with name %s and email %s from key vault", contact.getName(),
-        contact.getEmailAddress());
-}
-```
-
-### JS/TS
- ```ts
-await client.deleteContacts();
 ```
 
 ### API
@@ -1767,77 +835,21 @@ async def delete_contacts(self, **kwargs: "Any") -> List[CertificateContact]:
   ): Promise<CertificateContact[] | undefined>
 ```
 
-## Scenario - Get Certificate Signing Request
-### Usage
-### java
-```java
-//Async
-certificateAsyncClient.getPendingCertificateSigningRequest("certificateName")
-    .subscribe(signingRequest -> System.out.printf("Received Signing request blob of length %s",
-        signingRequest.length));
-
-//Sync
-byte[] signingRequest = certificateClient.getPendingCertificateSigningRequest("certificateName");
-System.out.printf("Received Signing request blob of length %s", signingRequest.length);
-```
 ### API
 ### Java
-```java
-public Mono<byte[]> getPendingCertificateSigningRequest(String certificateName);
-public Mono<Response<byte[]>> getPendingCertificateSigningRequestWithResponse(String certificateName);
-
-public byte[] getPendingCertificateSigningRequest(String certificateName);
-public Response<byte[]> getPendingCertificateSigningRequestWithResponse(String certificateName, Context context);
-```
+Removed
 
 ### .NET
 ```c#
 Not in Master.
 ```
 ### Python
-```python
-    def get_pending_certificate_signing_request(
-        self,
-        name,  # type: str
-        **kwargs  # type: **Any
-    ):
-```
+Removed
 ### JS/TS
 ```ts
 Not in Master
 ```
 
-## ~Scenario - Get Certificate Signing Request~
-
-## Scenario - Merge Certificate
-### Usage
-### java
- ```java
- ```
-
-### JS/TS
- ```ts
-const client = new CertificatesClient(url, credentials);
-await client.beginCreateCertificate("MyCertificate", {
-  issuerName: "Unknown",
-  certificateTransparency: false,
-  subject: "cn=MyCert"
-});
-const operationPoller = await client.getCertificateOperation(certificateName);
-const { csr } = operationPoller.getResult();
-const base64Csr = Buffer.from(csr!).toString("base64");
-const wrappedCsr = ["-----BEGIN CERTIFICATE REQUEST-----", base64Csr, "-----END CERTIFICATE REQUEST-----"].join("\n");
-fs.writeFileSync("test.csr", wrappedCsr);
-
-// Certificate available locally made using:
-// openssl genrsa -out ca.key 2048
-// openssl req -new -x509 -key ca.key -out ca.crt
-// You can read more about how to create a fake certificate authority here: https://gist.github.com/Soarez/9688998
-childProcess.execSync("openssl x509 -req -in test.csr -CA ca.crt -CAkey ca.key -CAcreateserial -out test.crt");
-const base64Crt = fs.readFileSync("test.crt").toString().split("\n").slice(1, -1).join("");
-
-await client.mergeCertificate(certificateName, [Buffer.from(base64Crt)]);
-```
 ### API
 ### Java
 ```java
@@ -1858,6 +870,9 @@ public virtual Task<Response<KeyVaultCertificateWithPolicy>> MergeCertificateAsy
 async def merge_certificate(
         self, certificate_name: str, x509_certificates: List[bytearray], **kwargs: "Any"
     ) -> KeyVaultCertificate:
+:keyword bool enabled: Whether the certificate is enabled for use.
+:keyword tags: Application specific metadata in the form of key-value pairs.
+:paramtype tags: dict[str, str]
 ```
 ### JS/TS
 ```ts
@@ -1868,21 +883,7 @@ async def merge_certificate(
   ): Promise<KeyVaultCertificateWithPolicy>
 ```
 
-## Scenario - Import Certificate
-### Usage
-```ts
-const client = new CertificatesClient(url, credentials);
-const certificateSecret = await secretClient.getSecret(certificateNames[0]);
-const base64EncodedCertificate = certificateSecret.value!;
-let buffer: Uint8Array;
-if (isNode) {
-  buffer = Buffer.from(base64EncodedCertificate, "base64");
-} else {
-  buffer = Uint8Array.from(atob(base64EncodedCertificate), c => c.charCodeAt(0));
-}
-await client.importCertificate(certificateNames[1], buffer);
-```
-
+### API
 ### Java
 ```java
 public Mono<KeyVaultCertificateWithPolicy> importCertificate(ImportCertificateOptions importCertificateOptions)
@@ -1903,6 +904,13 @@ public virtual Task<Response<KeyVaultCertificateWithPolicy>> ImportCertificateAs
 async def import_certificate(
         self, certificate_name: str, certificate_bytes: bytes, **kwargs: "Any"
     ) -> KeyVaultCertificate:
+:keyword bool enabled: Whether the certificate is enabled for use.
+:keyword tags: Application specific metadata in the form of key-value pairs.
+:paramtype tags: dict[str, str]
+:keyword str password: If the private key in the passed in certificate is encrypted, it
+    is the password used for encryption.
+:keyword policy: The management policy for the certificate
+:paramtype policy: ~azure.keyvault.certificates.CertificatePolicy
 ```
 ### JS/TS
 ```ts
@@ -1994,8 +1002,8 @@ public class KeyVaultCertificateWithPolicy : KeyVaultCertificate {
 
 ### Java
 ```java
+// not seeing a getProperties
 public class KeyVaultCertificateWithPolicy extends KeyVaultCertificate {
-    public CertificateProperties getProperties() {} // I'm not seeing this defined in the keyvaultcertificatepolicy class
     public KeyVaultCertificateWithPolicy setProperties(CertificateProperties properties) {}
     public CertificatePolicy getCertificatePolicy() {}
     public KeyVaultCertificateWithPolicy setCertificatePolicy(CertificatePolicy certificatePolicy) {}
@@ -2180,7 +1188,7 @@ def __init__(
         cancellation_requested=False,  # type: Optional[bool]
         status=None,  # type: Optional[str]
         status_details=None,  # type: Optional[str]
-        error=None,  # type: Optional[models.Error]
+        error=None,  # type: Optional[CertificateOperatinError]
         target=None,  # type: Optional[str]
         request_id=None,  # type: Optional[str]
     ):
@@ -2334,11 +1342,11 @@ public class CertificatePolicy : IJsonSerializable, IJsonDeserializable {
     public CertificatePolicy(string issuerName, string subject);
     public CertificatePolicy(string issuerName, SubjectAlternativeNames subjectAlternativeNames);
     public CertificatePolicy(string issuerName, string subject, SubjectAlternativeNames subjectAlternativeNames);
+    public static CertificatePolicy Default { get; }
     public bool? CertificateTransparency { get; set; }
     public string CertificateType { get; set; }
     public CertificateContentType? ContentType { get; set; }
     public DateTimeOffset? CreatedOn { get; }
-    public static CertificatePolicy Default { get; }
     public bool? Enabled { get; set; }
     public IList<string> EnhancedKeyUsage { get; }
     public bool? Exportable { get; set; }
@@ -2353,6 +1361,8 @@ public class CertificatePolicy : IJsonSerializable, IJsonDeserializable {
     public SubjectAlternativeNames SubjectAlternativeNames { get; }
     public DateTimeOffset? UpdatedOn { get; }
     public int? ValidityInMonths { get; set; }
+
+
 }
 ```
 
@@ -2361,42 +1371,42 @@ public class CertificatePolicy : IJsonSerializable, IJsonDeserializable {
 public final class CertificatePolicy {
     public CertificatePolicy(String issuerName, String subject)
     public CertificatePolicy(String issuerName, SubjectAlternativeNames subjectAlternativeNames)
-    public List<CertificateKeyUsage> getKeyUsage()
-    public CertificatePolicy setKeyUsage(CertificateKeyUsage... keyUsage)
+    public CertificatePolicy(String issuerName, String subject, SubjectAlternativeNames subjectAlternativeNames)
+    public static CertificatePolicy getDefault()
+    public Boolean isCertificateTransparent()
+    public CertificatePolicy setCertificateTransparent(Boolean certificateTransparent)
+    public String getCertificateType()
+    public CertificatePolicy setCertificateType(String certificateType)
+    public CertificateContentType getContentType()
+    public CertificatePolicy setContentType(CertificateContentType contentType)
+    public OffsetDateTime getCreatedOn()
+    public Boolean isEnabled()
+    public CertificatePolicy setEnabled(Boolean enabled)
     public List<String> getEnhancedKeyUsage()
     public CertificatePolicy setEnhancedKeyUsage(List<String> ekus)
     public Boolean isExportable()
     public CertificatePolicy setExportable(Boolean exportable)
-    public CertificateKeyType getKeyType()
-    public CertificatePolicy setKeyType(CertificateKeyType keyType)
-    public Integer getKeySize()
-    public CertificatePolicy setKeySize(Integer keySize)
-    public Boolean isKeyReusable()
-    public CertificatePolicy setKeyReusable(Boolean keyReusable)
-    public CertificateKeyCurveName getKeyCurveName()
-    public CertificatePolicy setKeyCurveName(CertificateKeyCurveName keyCurveName) {}
-    public CertificatePolicy setKeyCurveName(CertificateKeyCurveName keyCurveName)
-    public OffsetDateTime getCreatedOn()
-    public OffsetDateTime getUpdatedOn()
-    public Boolean isEnabled()
-    public CertificatePolicy setEnabled(Boolean enabled)
-    public CertificateContentType getContentType()
-    public CertificatePolicy setContentType(CertificateContentType contentType)
-    public CertificatePolicy getSubjectName(String subjectName)
-    public SubjectAlternativeNames getSubjectAlternativeNames()
-    public CertificatePolicy setSubjectAlternativeNames(SubjectAlternativeNames subjectAlternativeNames)
-    public Integer getValidityInMonths()
-    public CertificatePolicy setValidityInMonths(Integer validityInMonths)
     public String getIssuerName()
     public CertificatePolicy setIssuerName(String issuerName)
-    public String getCertificateType()
-    public CertificatePolicy setCertificateType(String certificateType)
-    public Boolean isCertificateTransparent()
-    public CertificatePolicy setCertificateTransparent(Boolean certificateTransparent)
-    public String getSubject() // not seeing a setSubject
+    public CertificateKeyCurveName getKeyCurveName()
+    public CertificatePolicy setKeyCurveName(CertificateKeyCurveName keyCurveName)
+    public Integer getKeySize()
+    public CertificatePolicy setKeySize(Integer keySize)
+    public CertificateKeyType getKeyType()
+    public CertificatePolicy setKeyType(CertificateKeyType keyType)
+    public List<CertificateKeyUsage> getKeyUsage()
+    public CertificatePolicy setKeyUsage(CertificateKeyUsage... keyUsage)
     public List<LifetimeAction> getLifetimeActions()
     public CertificatePolicy setLifetimeActions(LifetimeAction... actions)
-    public static CertificatePolicy getDefault()
+    public Boolean isKeyReusable()
+    public CertificatePolicy setKeyReusable(Boolean keyReusable)
+    public String getSubject() // not seeing a setSubject
+    public SubjectAlternativeNames getSubjectAlternativeNames()
+    public CertificatePolicy setSubjectAlternativeNames(SubjectAlternativeNames subjectAlternativeNames)
+    public OffsetDateTime getUpdatedOn()
+    public Integer getValidityInMonths()
+    public CertificatePolicy setValidityInMonths(Integer validityInMonths)
+
 }
 ```
 
@@ -2407,33 +1417,50 @@ def __init__(
         issuer_name,  # type: str
         **kwargs  # type: Any
     ):
-@property
-    def id(self):
+    def get_default(cls):
+
+    @property
+    def certificate_transparency(self):
+        # type: () -> bool
+    @property
+    def certificate_type(self):
         # type: () -> str
     @property
-    def exportable(self):
+    def content_type(self):
+        # type: () -> CertificateContentType
+    @property
+    def created_on(self):
+        # type: () -> datetime
+    @property
+    def enabled(self):
         # type: () -> bool
-    @property
-    def key_type(self):
-        # type: () -> KeyType
-    @property
-    def key_size(self):
-        # type: () -> int
-    @property
-    def reuse_key(self):
-        # type: () -> bool
-    @property
-    def key_curve_name(self):
-        # type: () -> KeyCurveName
     @property
     def enhanced_key_usage(self):
         # type: () -> List[str]
     @property
+    def exportable(self):
+        # type: () -> bool
+    @property
+    def issuer_name(self):
+        # type: () -> str
+    @property
+    def key_curve_name(self):
+        # type: () -> KeyCurveName
+    @property
+    def key_size(self):
+        # type: () -> int
+    @property
+    def key_type(self):
+        # type: () -> KeyType
+    @property
     def key_usage(self):
         # type: () -> List[KeyUsageType]
     @property
-    def content_type(self):
-        # type: () -> CertificateContentType
+    def lifetime_actions(self):
+        # type: () -> List[LifetimeAction]
+    @property
+    def reuse_key(self):
+        # type: () -> bool
     @property
     def subject(self):
         # type: () -> str
@@ -2447,35 +1474,24 @@ def __init__(
     def san_user_principal_names(self):
         # type: () -> List[str]
     @property
+    def updated_on(self):
+        # type: () -> datetime
+    @property
     def validity_in_months(self):
         # type: () -> int
+
+
     @property
-    def lifetime_actions(self):
-        # type: () -> List[LifetimeAction]
-    @property
-    def issuer_name(self):
+    def id(self):
         # type: () -> str
-    @property
-    def certificate_type(self):
-        # type: () -> str
-    @property
-    def certificate_transparency(self):
-        # type: () -> bool
-    @property
-    def enabled(self):
-        # type: () -> bool
+
     @property
     def not_before(self):
         # type: () -> datetime
     @property
     def expires_on(self):
         # type: () -> datetime
-    @property
-    def created_on(self):
-        # type: () -> datetime
-    @property
-    def updated_on(self):
-        # type: () -> datetime
+
     @property
     def recovery_level(self):
         # type: () -> models.DeletionRecoveryLevel
@@ -2488,12 +1504,12 @@ export type RequireAtLeastOne<T> = {
 
 export interface CertificatePolicyProperties {
   certificateTransparency?: boolean;
-  contentType?: CertificateContentType;
   certificateType?: string;
+  contentType?: CertificateContentType;
   readonly createdOn?: Date;
   enabled?: boolean;
-  exportable?: boolean;
   enhancedKeyUsage?: string[];
+  exportable?: boolean;
   issuerName?: WellKnownIssuerNames | string;
   keyCurveName?: CertificateKeyCurveName;
   keySize?: number;
@@ -2562,15 +1578,15 @@ export type CertificateContentType = "application/x-pem-file" | "application/x-p
 ```c#
 public struct CertificateKeyUsage : IEquatable<CertificateKeyUsage> {
     public CertificateKeyUsage(string value);
-    public static CertificateKeyUsage CrlSign { get; }
-    public static CertificateKeyUsage DataEncipherment { get; }
-    public static CertificateKeyUsage DecipherOnly { get; }
     public static CertificateKeyUsage DigitalSignature { get; }
-    public static CertificateKeyUsage EncipherOnly { get; }
+    public static CertificateKeyUsage NonRepudiation { get; }
+    public static CertificateKeyUsage KeyEncipherment { get; }
+    public static CertificateKeyUsage DataEncipherment { get; }
     public static CertificateKeyUsage KeyAgreement { get; }
     public static CertificateKeyUsage KeyCertSign { get; }
-    public static CertificateKeyUsage KeyEncipherment { get; }
-    public static CertificateKeyUsage NonRepudiation { get; }
+    public static CertificateKeyUsage CrlSign { get; }
+    public static CertificateKeyUsage EncipherOnly { get; }
+    public static CertificateKeyUsage DecipherOnly { get; }
     public static bool operator ==(CertificateKeyUsage left, CertificateKeyUsage right);
     public static implicit operator CertificateKeyUsage(string value);
     public static bool operator !=(CertificateKeyUsage left, CertificateKeyUsage right);
@@ -3100,8 +2116,8 @@ public final class CertificateIssuer {
     public CertificateIssuer setAdministratorContacts(List<AdministratorContact> administratorContacts)
     public Boolean isEnabled()
     public CertificateIssuer setEnabled(Boolean enabled)
-    public OffsetDateTime getCreated()
-    public OffsetDateTime getUpdated()
+    public OffsetDateTime getCreatedOn()
+    public OffsetDateTime getUpdatedOn()
 }
 ```
 
