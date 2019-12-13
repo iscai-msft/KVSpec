@@ -204,15 +204,15 @@ Debug.WriteLine($"Certificate was returned with name {certificate.Name} which ex
 ```ts
   const client = new CertificateClient(url, credential);
 
-  // CertificatePolicy.Default:
+  // DefaultCertificatePolicy:
   //  export const Default: CertificatePolicy = {
   //    issuerName: "Self",
   //    subject: "cn=MyCert"
   //  };
-  const createPoller = await client.beginCreateCertificate(certificateName, CertificatePolicy.Default);
+  const createPoller = await client.beginCreateCertificate(certificateName, DefaultCertificatePolicy);
 
   const pendingCertificate = createPoller.getResult();
-  console.log("Certificate: ", pendingCertificate);
+  console.log("Pending certificate: ", pendingCertificate);
 ```
 
 ### API
@@ -256,7 +256,7 @@ public virtual Task<CertificateOperation> StartCreateCertificateAsync(string cer
 ```ts
   public async beginCreateCertificate(
     certificateName: string,
-    certificatePolicy: CertificatePolicy,
+    policy: CertificatePolicy,
     options: BeginCreateCertificateOptions = {}
   ): Promise<
     PollerLike<PollOperationState<KeyVaultCertificateWithPolicy>, KeyVaultCertificateWithPolicy>
@@ -501,7 +501,7 @@ async def update_certificate_properties(
 ```ts
   public async updateCertificateProperties(
     certificateName: string,
-    version: string,
+    version: string = "",
     options: UpdateCertificatePropertiesOptions = {}
   ): Promise<KeyVaultCertificate>
 ```
@@ -556,9 +556,9 @@ async def update_certificate_policy(
 ### JS/TS
 ```ts
   public async updateCertificatePolicy(
-    name: string,
+    certificateName: string,
     policy: CertificatePolicy,
-    options?: RequestOptionsBase
+    options: UpdateCertificatePolicyOptions = {}
   ): Promise<CertificatePolicy>
 ```
 
@@ -653,7 +653,8 @@ System.out.printf("Deleted certificate with name %s and recovery id %s", deleted
 ```
 ### JS/TS
  ```ts
-client.getDeletedCertificate("MyDeletedCertificate");
+const deletedCertificate = await client.getDeletedCertificate("MyDeletedCertificate");
+console.log("Deleted certificate:", deletedCertificate);
 ```
 
 ### API
@@ -706,7 +707,8 @@ recoverCertPoller.waitForCompletion();
 ### JS/TS
  ```ts
 const recoverPoller = await client.beginRecoverDeletedCertificate("MyCertificate");
-const certificateWithPolicy = await recoverPoller.pollUntilDone();
+const certificate = await recoverPoller.pollUntilDone();
+console.log(certificate);
 ```
 
 ### API
@@ -1516,9 +1518,8 @@ async def get_certificate_operation(self, certificate_name: str, **kwargs: "Any"
 
 ### JS/TS
 ```ts
-// Directly
-await client.cancelCertificateOperation("MyCertificate");
-
+// Directly can't be done anymore, this method is now private.
+// await client.cancelCertificateOperation("MyCertificate");
 // The poller cancel methods use client.cancelCertificateOperation in the background.
 
 // Through the create poller
@@ -1560,9 +1561,9 @@ async def cancel_certificate_operation(self, certificate_name: str, **kwargs: "A
 ```
 ### JS/TS
 ```ts
-  public async cancelCertificateOperation(
-    name: string,
-    options?: RequestOptionsBase
+  private async cancelCertificateOperation(
+    certificateName: string,
+    options: CancelCertificateOperationOptions = {}
   ): Promise<CertificateOperation>
 ```
 
@@ -1609,9 +1610,9 @@ async def delete_certificate_operation(self, certificate_name: str, **kwargs: "A
 ```
 ### JS/TS
 ```ts
- public async deleteCertificateOperation(
-    name: string,
-    options?: RequestOptionsBase
+  public async deleteCertificateOperation(
+    certificateName: string,
+    options: DeleteCertificateOperationOptions = {}
   ): Promise<CertificateOperation>
 ```
 
@@ -1638,7 +1639,7 @@ for (CertificateContact contact : certificateClient.setContacts(Arrays.asList(co
 ### JS/TS
  ```ts
 await client.setContacts([{
-  emailAddress: "b@b.com",
+  email: "b@b.com",
   name: "b",
   phone: "222222222222"
 }]);
@@ -1667,9 +1668,9 @@ async def set_contacts(
 ### JS/TS
 ```ts
   public async setContacts(
-    contacts: Contact[],
+    contacts: CertificateContact[],
     options: SetContactsOptions = {}
-  ): Promise<CertificateContacts>
+  ): Promise<CertificateContact[] | undefined>
 ```
 
 ## Scenario - List Certificate Contacts
@@ -1690,8 +1691,8 @@ for (CertificateContact contact : certificateClient.listContacts(new Context(key
 
 ### JS/TS
  ```ts
-const getResponse = await client.getContacts();
-console.log(getResponse.contactList!);
+const contacts = await client.getContacts();
+console.log(contacts!);
 ```
 
 ### API
@@ -1714,7 +1715,9 @@ async def get_contacts(self, **kwargs: "Any") -> List[CertificateContact]:
 ```
 ### JS/TS
 ```ts
-public async getContacts(options: GetContactsOptions = {}): Promise<CertificateContacts>
+  public async getContacts(
+    options: GetContactsOptions = {}
+  ): Promise<CertificateContact[] | undefined>
 ```
 
 ## Scenario - Delete Certificate Contacts
@@ -1759,7 +1762,9 @@ async def delete_contacts(self, **kwargs: "Any") -> List[CertificateContact]:
 ```
 ### JS/TS
 ```ts
-  public async deleteContacts(options?: RequestOptionsBase): Promise<Contacts>
+  public async deleteContacts(
+    options: DeleteContactsOptions = {}
+  ): Promise<CertificateContact[] | undefined>
 ```
 
 ## Scenario - Get Certificate Signing Request
@@ -1860,16 +1865,22 @@ async def merge_certificate(
     certificateName: string,
     x509Certificates: Uint8Array[],
     options: MergeCertificateOptions = {}
-  ): Promise<KeyVaultCertificate>
+  ): Promise<KeyVaultCertificateWithPolicy>
 ```
 
 ## Scenario - Import Certificate
 ### Usage
 ```ts
 const client = new CertificatesClient(url, credentials);
-const certificateSecret = await secretsClient.getSecret("MyCertificate");
+const certificateSecret = await secretClient.getSecret(certificateNames[0]);
 const base64EncodedCertificate = certificateSecret.value!;
-await client.importCertificate("MyCertificate", base64EncodedCertificate);
+let buffer: Uint8Array;
+if (isNode) {
+  buffer = Buffer.from(base64EncodedCertificate, "base64");
+} else {
+  buffer = Uint8Array.from(atob(base64EncodedCertificate), c => c.charCodeAt(0));
+}
+await client.importCertificate(certificateNames[1], buffer);
 ```
 
 ### Java
@@ -1897,9 +1908,9 @@ async def import_certificate(
 ```ts
   public async importCertificate(
     certificateName: string,
-    base64EncodedCertificate: string,
+    certificateValue: Uint8Array,
     options: ImportCertificateOptions = {}
-  ): Promise<KeyVaultCertificate>
+  ): Promise<KeyVaultCertificateWithPolicy>
 ```
 
 ## Certifciates Datastructures Design
@@ -1963,39 +1974,12 @@ def __init__(
 ```
 ### JS/TS
 ```ts
-/**
- * An interface representing a certificate without the certificate's policy
- */
 export interface KeyVaultCertificate {
-  /**
-   * CER contents of x509 certificate.
-   */
   cer?: Uint8Array;
-  /**
-   * Certificate identifier.
-   * **NOTE: This property will not be serialized. It can only be populated by
-   * the server.**
-   */
   id?: string;
-  /**
-   * The key id.
-   * **NOTE: This property will not be serialized. It can only be populated by
-   * the server.**
-   */
   readonly keyId?: string;
-  /**
-   * The secret id.
-   * **NOTE: This property will not be serialized. It can only be populated by
-   * the server.**
-   */
   readonly secretId?: string;
-  /**
-   * The name of certificate.
-   */
-  name: string;
-  /**
-   * The properties of the certificate
-   */
+  readonly name: string;
   properties: CertificateProperties;
 }
 ```
@@ -2025,15 +2009,7 @@ N/A
 ```
 ### JS/TS
 ```ts
-/**
- * An interface representing a certificate with its policy
- */
 export interface KeyVaultCertificateWithPolicy extends KeyVaultCertificate {
-  /**
-   * The management policy.
-   * **NOTE: This property will not be serialized. It can only be populated by
-   * the server.**
-   */
   readonly policy?: CertificatePolicy;
 }
 ```
@@ -2120,66 +2096,20 @@ def __init__(self, **kwargs):
 ```
 ### JS/TS
 ```ts
-/**
- * An interface representing the properties of a certificate
- */
 export interface CertificateProperties {
-  /**
-   * When the certificate was created.
-   */
   readonly createdOn?: Date;
-  /**
-   * Determines whether the object is enabled.
-   */
   enabled?: boolean;
-  /**
-   * Expiry date in UTC.
-   */
   readonly expiresOn?: Date;
-  /**
-   * Certificate identifier.
-   * **NOTE: This property will not be serialized. It can only be populated by
-   * the server.**
-   */
-  id?: string;
-  /**
-   * The name of certificate.
-   */
-  name?: string;
-  /**
-   * Not before date in UTC.
-   */
+  readonly id?: string;
+  readonly name?: string;
   notBefore?: Date;
-  /**
-   * Reflects the deletion recovery level currently in effect for certificates in the current
-   * vault. If it contains 'Purgeable', the certificate can be permanently deleted by a privileged
-   * user; otherwise, only the system can purge the certificate, at the end of the retention
-   * interval. Possible values include: 'Purgeable', 'Recoverable+Purgeable', 'Recoverable',
-   * 'Recoverable+ProtectedSubscription'
-   * **NOTE: This property will not be serialized. It can only be populated by the server.**
-   */
   readonly recoveryLevel?: DeletionRecoveryLevel;
-  /**
-   * Application specific
-   * metadata in the form of key-value pairs.
-   */
   tags?: CertificateTags;
-  /**
-   * When the issuer was updated.
-   */
-  updatedOn?: Date;
-  /**
-   * The vault URI.
-   */
+  readonly updatedOn?: Date;
   vaultUrl?: string;
-  /**
-   * The version of certificate. May be undefined.
-   */
-  version?: string;
-  /**
-   * Thumbprint of the certificate.
-   */
+  readonly version?: string;
   readonly x509Thumbprint?: Uint8Array;
+}
 }
 ```
 
@@ -2294,59 +2224,20 @@ def __init__(
 ```
 ### JS/TS
 ```ts
-/**
- * A certificate operation is returned in case of asynchronous requests.
- */
 export interface CertificateOperation {
-  /**
-   * The certificate id.
-   * **NOTE: This property will not be serialized. It can only be populated by the server.**
-   */
   readonly id?: string;
-  /**
-   * Name of the referenced issuer object or reserved names; for example, 'Self' or 'Unknown'.
-   */
   issuerName?: string;
-  /**
-   * Type of certificate to be requested from the issuer provider.
-   */
   certificateType?: string;
-  /**
-   * Indicates if the certificates generated under this policy should be published to certificate
-   * transparency logs.
-   */
   certificateTransparency?: boolean;
-  /**
-   * The certificate signing request (CSR) that is being used in the certificate operation.
-   */
   csr?: Uint8Array;
-  /**
-   * Indicates if cancellation was requested on the certificate operation.
-   */
   cancellationRequested?: boolean;
-  /**
-   * Status of the certificate operation.
-   */
   status?: string;
-  /**
-   * The status details of the certificate operation.
-   */
   statusDetails?: string;
-  /**
-   * Error encountered, if any, during the certificate operation.
-   */
   error?: CertificateOperationError;
-  /**
-   * Location which contains the result of the certificate operation.
-   */
   target?: string;
-  /**
-   * Identifier for the certificate operation.
-   */
   requestId?: string;
 }
 ```
-
 
 ## CertificateOperationError
 ### .NET
@@ -2382,27 +2273,12 @@ def __init__(self, code, message, inner_error):
 ```
 ### JS/TS
 ```ts
-/**
- * The key vault server error.
- */
 export interface CertificateOperationError {
-  /**
-   * The error code.
-   * **NOTE: This property will not be serialized. It can only be populated by the server.**
-   */
   readonly code?: string;
-  /**
-   * The error message.
-   * **NOTE: This property will not be serialized. It can only be populated by the server.**
-   */
   readonly message?: string;
-  /**
-   * **NOTE: This property will not be serialized. It can only be populated by the server.**
-   */
   readonly innerError?: CertificateOperationError;
 }
 ```
-
 
 ## DeletedCertificate
 ### .NET
@@ -2444,27 +2320,9 @@ def __init__(
 ```
 ### JS/TS
 ```ts
-/**
- * An interface representing a deleted certificate
- */
 export interface DeletedCertificate extends KeyVaultCertificateWithPolicy {
-  /**
-   * The time when the certificate was deleted, in UTC
-   * **NOTE: This property will not be serialized. It can only be populated by
-   * the server.**
-   */
   readonly deletedOn?: Date;
-  /**
-   * The url of the recovery object, used to
-   * identify and recover the deleted certificate.
-   */
   recoveryId?: string;
-  /**
-   * The time when the certificate is scheduled
-   * to be purged, in UTC
-   * **NOTE: This property will not be serialized. It can only be populated by
-   * the server.**
-   */
   readonly scheduledPurgeDate?: Date;
 }
 ```
@@ -2624,85 +2482,36 @@ def __init__(
 ```
 ### JS/TS
 ```ts
-/**
- * An interface representing a certificate's policy.
- */
-export interface CertificatePolicy {
-  /**
-   * Indicates if the certificates generated under this policy should be published to certificate
-   * transparency logs.
-   */
+export type RequireAtLeastOne<T> = {
+  [K in keyof T]-?: Required<Pick<T, K>> & Partial<Pick<T, Exclude<keyof T, K>>>;
+}[keyof T];
+
+export interface CertificatePolicyProperties {
   certificateTransparency?: boolean;
-  /**
-   * The media type (MIME type).
-   */
   contentType?: CertificateContentType;
-  /**
-   * Type of certificate to be requested from the issuer provider.
-   */
   certificateType?: string;
-  /**
-   * When the certificate was created.
-   */
   readonly createdOn?: Date;
-  /**
-   * Determines whether the object is enabled.
-   */
   enabled?: boolean;
-  /**
-   * Whether or not the certificate can be exported
-   */
   exportable?: boolean;
-  /**
-   * The enhanced key usage.
-   */
   enhancedKeyUsage?: string[];
-  /**
-   * Name of the referenced issuer object or reserved names; for example, 'Self' or 'Unknown'.
-   */
   issuerName?: WellKnownIssuerNames | string;
-  /**
-   * Elliptic curve name. Possible values include: 'P-256', 'P-384', 'P-521', 'P-256K'
-   */
-  keyCurveName?: KeyCurveName;
-  /**
-   * The key size in bits. For example: 2048, 3072, or 4096 for RSA.
-   */
+  keyCurveName?: CertificateKeyCurveName;
   keySize?: number;
-  /**
-   * The type of key pair to be used for the certificate. Possible values include: 'EC', 'EC-HSM',
-   * 'RSA', 'RSA-HSM', 'oct'
-   */
-  keyType?: KeyType;
-  /**
-   * List of key usages.
-   */
+  keyType?: CertificateKeyType;
   keyUsage?: KeyUsageType[];
-  /**
-   * Actions that will be performed by Key Vault over the lifetime of a certificate.
-   */
   lifetimeActions?: LifetimeAction[];
-  /**
-   * Indicates if the same key pair will be used on certificate renewal.
-   */
   reuseKey?: boolean;
-  /**
-   * When the object was updated.
-   */
   readonly updatedOn?: Date;
-  /**
-   * The duration that the certificate is valid in months.
-   */
   validityInMonths?: number;
-  /**
-   * The subject name. Should be a valid X509 distinguished Name.
-   */
-  subject?: string;
-  /**
-   * The subject alternative names.
-   */
-  subjectAlternativeNames?: SubjectAlternativeNames;
 }
+
+export interface PolicySubjectProperties {
+  subject: string;
+  subjectAlternativeNames: SubjectAlternativeNames;
+}
+
+export type CertificatePolicy = CertificatePolicyProperties &
+  RequireAtLeastOne<PolicySubjectProperties>;
 ```
 
 
@@ -2744,7 +2553,7 @@ class CertificateContentType(str, Enum):
 
 ### JS/TS
 ```ts
-export type CertificateContentType = "application/pem" | "application/x-pkcs12" | undefined;
+export type CertificateContentType = "application/x-pem-file" | "application/x-pkcs12" | undefined;
 ```
 
 
@@ -2806,13 +2615,6 @@ class KeyUsageType(str, Enum):
 ```
 ### JS/TS
 ```ts
-/**
- * Defines values for KeyUsageType.
- * Possible values include: 'digitalSignature', 'nonRepudiation', 'keyEncipherment',
- * 'dataEncipherment', 'keyAgreement', 'keyCertSign', 'cRLSign', 'encipherOnly', 'decipherOnly'
- * @readonly
- * @enum {string}
- */
 export type KeyUsageType =
   | "digitalSignature"
   | "nonRepudiation"
@@ -2857,9 +2659,6 @@ class CertificatePolicyAction(str, Enum):
 ```
 ### JS/TS
 ```ts
-/**
- * The action that will be executed.
- */
 export type CertificatePolicyAction = "EmailContacts" | "AutoRenew";
 ```
 
@@ -2903,23 +2702,9 @@ def __init__(self, action, lifetime_percentage=None, days_before_expiry=None):
 ```
 ### JS/TS
 ```ts
-/**
- * Action and its trigger that will be performed by Key Vault over the lifetime of a certificate.
- */
 export interface LifetimeAction {
-  /**
-   * Percentage of lifetime at which to trigger. Value should be between 1 and 99.
-   */
   lifetimePercentage?: number;
-  /**
-   * Days before expiry to attempt renewal. Value should be between 1 and validity_in_months
-   * multiplied by 27. If validity_in_months is 36, then value should be between 1 and 972 (36 *
-   * 27).
-   */
   daysBeforeExpiry?: number;
-  /**
-   * The action that will be executed.
-   */
   action?: CertificatePolicyAction;
 }
 ```
@@ -2952,37 +2737,17 @@ public final class SubjectAlternativeNames {
 N/A
 ### JS/TS
 ```ts
-/**
- * An array with one property at minimum.
- */
 export type ArrayOneOrMore<T> = {
   0: T;
 } & Array<T>;
 
-/**
- * An interface representing the alternative names of the subject of a certificate policy.
- */
 export interface SubjectAlternativeNamesAll {
-  /**
-   * Email addresses.
-   */
   emails: ArrayOneOrMore<string>;
-  /**
-   * Domain names.
-   */
   dnsNames: ArrayOneOrMore<string>;
-  /**
-   * User principal names.
-   */
   userPrincipalNames: ArrayOneOrMore<string>;
 }
 
-/**
- * Alternatives to the subject property.
- * If present, it should at least have one of the properties of SubjectAlternativeNamesAll.
- */
 export type SubjectAlternativeNames = RequireAtLeastOne<SubjectAlternativeNamesAll>;
-
 ```
 
 
@@ -3030,13 +2795,7 @@ class KeyCurveName(str, Enum):
 ```
 ### JS/TS
 ```ts
-/**
- * Defines values for JsonWebKeyCurveName.
- * Possible values include: 'P-256', 'P-384', 'P-521', 'P-256K'
- * @readonly
- * @enum {string}
- */
-export type JsonWebKeyCurveName = "P-256" | "P-384" | "P-521" | "P-256K";
+export type CertificateKeyCurveName = "P-256" | "P-384" | "P-521" | "P-256K";
 ```
 
 
@@ -3083,13 +2842,7 @@ class KeyType(str, Enum):
 ```
 ### JS/TS
 ```ts
-/**
- * Defines values for JsonWebKeyType.
- * Possible values include: 'EC', 'EC-HSM', 'RSA', 'RSA-HSM', 'oct'
- * @readonly
- * @enum {string}
- */
-export type JsonWebKeyType = "EC" | "EC-HSM" | "RSA" | "RSA-HSM" | "oct";
+export type CertificateKeyType = "EC" | "EC-HSM" | "RSA" | "RSA-HSM";
 ```
 
 ## MergeCertificateOptions
@@ -3123,9 +2876,6 @@ N/A
 ```
 ### JS/TS
 ```ts
-/**
- * An interface representing optional parameters for {@link mergeCertificate}.
- */
 export interface MergeCertificateOptions extends coreHttp.OperationOptions {}
 ```
 
@@ -3167,28 +2917,11 @@ N/A
 ```
 ### JS/TS
 ```ts
-/**
- * Options for {@link importCertificate}.
- */
 export interface ImportCertificateOptions extends coreHttp.OperationOptions {
-  /**
-   * Determines whether the object is enabled.
-   */
   enabled?: boolean;
-  /**
-   * If the private key in base64EncodedCertificate is encrypted, the password used for encryption.
-   */
   password?: string;
-  /**
-   * The management policy.
-   */
   policy?: CertificatePolicy;
-  /**
-   * Application specific
-   * metadata in the form of key-value pairs.
-   */
   tags?: CertificateTags;
-}
 ```
 
 
@@ -3219,17 +2952,8 @@ class WellKnownIssuerNames(str, Enum):
 ```
 ### JS/TS
 ```ts
-/**
- * Well known issuers for choosing a default
- */
 export enum WellKnownIssuerNames {
-  /**
-   * For self signed certificates
-   */
   Self = "Self",
-  /**
-   * For certificates whose issuer will be defined later
-   */
   Unknown = "Unknown"
 }
 ```
@@ -3280,25 +3004,10 @@ def __init__(self, first_name=None, last_name=None, email=None, phone=None):
 ```
 ### JS/TS
 ```ts
-/**
- * Details of the organization administrator of the certificate issuer.
- */
 export interface AdministratorContact {
-  /**
-   * First name.
-   */
   firstName?: string;
-  /**
-   * Last name.
-   */
   lastName?: string;
-  /**
-   * Email address.
-   */
   email?: string;
-  /**
-   * Phone number.
-   */
   phone?: string;
 }
 ```
@@ -3342,42 +3051,17 @@ def __init__(self, email=None, name=None, phone=None):
 ```
 ### JS/TS
 ```ts
-/**
- * RequireAtLeastOne helps create a type where at least one of the properties of an interface (can be any property) is required to exist.
- *
- * This works because of TypeScript's utility types: https://www.typescriptlang.org/docs/handbook/utility-types.html
- * Let's examine it:
- * - `[K in keyof T]-?` this property (K) is valid only if it has the same name as any property of T.
- * - `Required<Pick<T, K>>` makes a new type from T with just the current property in the iteration, and marks it as required
- * - `Partial<Pick<T, Exclude<keyof T, K>>>` makes a new type with all the properties of T, except from the property K.
- * - `&` is what unites the type with only one required property from `Required<...>` with all the optional properties from `Partial<...>`.
- * - `[keyof T]` ensures that only properties of T are allowed.
- */
+export interface CertificateContactAll {
+  email: string;
+  name: string;
+  phone: string;
+}
+
 export type RequireAtLeastOne<T> = {
   [K in keyof T]-?: Required<Pick<T, K>> & Partial<Pick<T, Exclude<keyof T, K>>>;
 }[keyof T];
 
-/**
- * The contact information for the vault certificates.
- * Each contact will have at least just one of the properties of CertificateContactAll,
- * which are: emailAddress, name or phone.
- */
 export type CertificateContact = RequireAtLeastOne<CertificateContactAll> | undefined;
-
-/**
- * The contacts for the vault certificates.
- */
-export interface CertificateContacts {
-  /**
-   * Identifier for the contacts collection.
-   * **NOTE: This property will not be serialized. It can only be populated by the server.**
-   */
-  readonly id?: string;
-  /**
-   * The contact list for the vault certificates.
-   */
-  contactList?: CertificateContact[];
-}
 ```
 
 ## CertificateIssuer
@@ -3469,54 +3153,17 @@ def __init__(
 ```
 ### JS/TS
 ```ts
-/**
- * An interface representing the properties of an issuer
- */
 export interface CertificateIssuer {
-  /**
-   * Certificate Identifier.
-   */
   id?: string;
-  /**
-   * Determines whether the object is enabled.
-   */
   enabled?: boolean;
-  /**
-   * When the issuer was created.
-   */
-  createdOn?: Date;
-  /**
-   * When the issuer was updated.
-   */
-  updatedOn?: Date;
-  /**
-   * Name of the issuer
-   */
-  name?: string;
-  /**
-   * The user name/account name/account id.
-   */
+  readonly createdOn?: Date;
+  readonly updatedOn?: Date;
+  readonly name?: string;
   accountId?: string;
-  /**
-   * The password/secret/account key.
-   */
   password?: string;
-  /**
-   * The credentials to be used for the issuer.
-   */
-  credentials?: IssuerCredentials;
-  /**
-   * Id of the organization.
-   */
   organizationId?: string;
-  /**
-   * Details of the organization's administrator contacts, as provided to the issuer.
-   */
   administratorContacts?: AdministratorContact[];
-  /**
-   * A small set of useful properties of a certificate issuer
-   */
-  issuerProperties?: IssuerProperties;
+  properties?: IssuerProperties;
 }
 ```
 
@@ -3559,21 +3206,9 @@ def __init__(self, provider=None, **kwargs):
 ```
 ### JS/TS
 ```ts
-/**
- * An interface representing the properties of a certificate issuer
- */
 export interface IssuerProperties {
-  /**
-   * Certificate Identifier.
-   */
   id?: string;
-  /**
-   * Name of the issuer.
-   */
-  name?: string;
-  /**
-   * The issuer provider.
-   */
+  readonly name?: string;
   provider?: string;
 }
 ```
