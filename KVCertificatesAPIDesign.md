@@ -2187,6 +2187,7 @@ export interface CertificateProperties {
 ### .NET
 ```c#
 public class CertificateOperation : Operation<KeyVaultCertificateWithPolicy> {
+    public CertificateOperation(Uri vaultUri, string name);
     public override bool HasCompleted { get; }
     public override bool HasValue { get; }
     public override string Id { get; }
@@ -2739,6 +2740,8 @@ class CertificateContentType(str, Enum):
 
     pkcs12 = "application/x-pkcs12"
     pem = "application/x-pem-file"
+```
+
 ### JS/TS
 ```ts
 export type CertificateContentType = "application/pem" | "application/x-pkcs12" | undefined;
@@ -3089,12 +3092,11 @@ class KeyType(str, Enum):
 export type JsonWebKeyType = "EC" | "EC-HSM" | "RSA" | "RSA-HSM" | "oct";
 ```
 
-
 ## MergeCertificateOptions
 ### .NET
 ```c#
 public class MergeCertificateOptions : IJsonSerializable {
-    public MergeCertificateOptions(string name, IEnumerable<byte[]> x509certificates);
+    public MergeCertificateOptions(string name, IEnumerable<byte[]> x509Certificates);
     public bool? Enabled { get; set; }
     public string Name { get; }
     public IDictionary<string, string> Tags { get; }
@@ -3132,12 +3134,12 @@ export interface MergeCertificateOptions extends coreHttp.OperationOptions {}
 ### .NET
 ```c#
 public class ImportCertificateOptions : IJsonSerializable {
-    public ImportCertificateOptions(string name, byte[] value, CertificatePolicy policy);
+    public ImportCertificateOptions(string name, byte[] value);
     public byte[] Certificate { get; }
     public bool? Enabled { get; set; }
     public string Name { get; }
     public string Password { get; set; }
-    public CertificatePolicy Policy { get; }
+    public CertificatePolicy Policy { get; set; }
     public IDictionary<string, string> Tags { get; }
 }
 ```
